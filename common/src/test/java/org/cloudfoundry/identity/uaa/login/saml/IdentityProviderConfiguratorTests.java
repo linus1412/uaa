@@ -79,7 +79,6 @@ public class IdentityProviderConfiguratorTests {
     public static final String xmlWithoutHeader = xmlWithoutID.replace("<?xml version=\"1.0\" encoding=\"UTF-8\"?>", "");
 
     SamlIdentityProviderConfigurator conf = null;
-    private static Map<String, Map<String, Object>>  data = null;
     SamlIdentityProviderDefinition singleAdd = null;
     SamlIdentityProviderDefinition singleAddWithoutHeader = null;
     private static final String singleAddAlias = "sample-alias";
@@ -168,7 +167,7 @@ public class IdentityProviderConfiguratorTests {
         );
     }
 
-    private static void parseYaml(String sampleYaml) {
+    private static Map<String, Map<String, Object>> parseYaml(String sampleYaml) {
         YamlMapFactoryBean factory = new YamlMapFactoryBean();
         factory.setResolutionMethod(YamlProcessor.ResolutionMethod.OVERRIDE_AND_IGNORE);
         List<Resource> resources = new ArrayList<>();
@@ -176,11 +175,11 @@ public class IdentityProviderConfiguratorTests {
         resources.add(resource);
         factory.setResources(resources.toArray(new Resource[resources.size()]));
         Map<String, Object> tmpdata = factory.getObject();
-        data = new HashMap<>();
+        Map<String, Map<String, Object>> dataMap = new HashMap<>();
         for (Map.Entry<String, Object> entry : ((Map<String, Object>)tmpdata.get("providers")).entrySet()) {
-            data.put(entry.getKey(), (Map<String, Object>)entry.getValue());
+            dataMap.put(entry.getKey(), (Map<String, Object>)entry.getValue());
         }
-        data = Collections.unmodifiableMap(data);
+        return Collections.unmodifiableMap(dataMap);
     }
 
     @Test
@@ -192,7 +191,7 @@ public class IdentityProviderConfiguratorTests {
 
     @Test
     public void testSingleAddProviderDefinition() throws Exception {
-        conf.setIdentityProviders(data);
+        conf.setIdentityProviders(parseYaml(sampleYaml));
         conf.afterPropertiesSet();
         conf.addSamlIdentityProviderDefinition(singleAdd);
         testGetIdentityProviderDefinitions(4, false);
@@ -200,7 +199,7 @@ public class IdentityProviderConfiguratorTests {
 
     @Test
     public void testSingleAddProviderWithoutXMLHeader() throws Exception {
-        conf.setIdentityProviders(data);
+        conf.setIdentityProviders(parseYaml(sampleYaml));
         conf.afterPropertiesSet();
         conf.addSamlIdentityProviderDefinition(singleAddWithoutHeader);
         testGetIdentityProviderDefinitions(4, false);
@@ -220,7 +219,7 @@ public class IdentityProviderConfiguratorTests {
     @Test
     public void testGetEntityID() throws Exception {
         Timer t = new Timer();
-        conf.setIdentityProviders(data);
+        conf.setIdentityProviders(parseYaml(sampleYaml));
         conf.afterPropertiesSet();
         for (SamlIdentityProviderDefinition def : conf.getIdentityProviderDefinitions()) {
             switch (def.getIdpEntityAlias()) {
@@ -280,7 +279,7 @@ public class IdentityProviderConfiguratorTests {
         List<String> clientIdpAliases = asList("simplesamlphp-url", "okta-local-2");
         clientDetails.addAdditionalInformation(ClientConstants.ALLOWED_PROVIDERS, clientIdpAliases);
 
-        conf.setIdentityProviders(data);
+        conf.setIdentityProviders(parseYaml(sampleYaml));
         conf.afterPropertiesSet();
         List<SamlIdentityProviderDefinition> clientIdps = conf.getIdentityProviderDefinitions(clientIdpAliases, IdentityZoneHolder.get());
         assertEquals(2, clientIdps.size());
@@ -290,7 +289,7 @@ public class IdentityProviderConfiguratorTests {
 
     @Test
     public void testReturnAllIdpsInZoneForClientWithNoAllowedProviders() throws Exception {
-        conf.setIdentityProviders(data);
+        conf.setIdentityProviders(parseYaml(sampleYaml));
         conf.afterPropertiesSet();
         SamlIdentityProviderDefinition samlIdentityProviderDefinitionInOtherZone = new SamlIdentityProviderDefinition(xml, "zoneIdpAlias","sample-nameID",1,true,true,"sample-link-test","sample-icon-url", "other-zone-id");
         try {
@@ -304,7 +303,7 @@ public class IdentityProviderConfiguratorTests {
 
     @Test
     public void testReturnNoIdpsInZoneForClientWithNoAllowedProviders() throws Exception {
-        conf.setIdentityProviders(data);
+        conf.setIdentityProviders(parseYaml(sampleYaml));
         conf.afterPropertiesSet();
         String xmlMetadata = String.format(xmlWithoutID, new RandomValueStringGenerator().generate());
         SamlIdentityProviderDefinition samlIdentityProviderDefinitionInOtherZone = new SamlIdentityProviderDefinition(xmlMetadata, "zoneIdpAlias","sample-nameID",1,true,true,"sample-link-test","sample-icon-url", "other-zone-id");
@@ -324,7 +323,7 @@ public class IdentityProviderConfiguratorTests {
     }
     protected void testGetIdentityProviderDefinitions(int count, boolean addData) throws Exception {
         if (addData) {
-            conf.setIdentityProviders(data);
+            conf.setIdentityProviders(parseYaml(sampleYaml));
             conf.afterPropertiesSet();
         }
         List<SamlIdentityProviderDefinition> idps = conf.getIdentityProviderDefinitions();
@@ -412,14 +411,14 @@ public class IdentityProviderConfiguratorTests {
     public void testDuplicateAlias_In_LegacyConfig() throws Exception {
         conf.setLegacyIdpMetaData("https://simplesamlphp.identity.cf-app.com/saml2/idp/metadata.php");
         conf.setLegacyIdpIdentityAlias("simplesamlphp-url");
-        conf.setIdentityProviders(data);
+        conf.setIdentityProviders(parseYaml(sampleYaml));
         conf.afterPropertiesSet();
     }
 
 
     @Test
     public void testDuplicate_EntityID_IsRejected() throws Exception {
-        conf.setIdentityProviders(data);
+        conf.setIdentityProviders(parseYaml(sampleYaml));
         conf.afterPropertiesSet();
         testGetIdentityProviderDefinitions(3, false);
 
@@ -490,8 +489,7 @@ public class IdentityProviderConfiguratorTests {
                 "      nameID: urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress\n" +
                 "      addShadowUserOnLogin: false\n";
 
-        parseYaml(yaml);
-        conf.setIdentityProviders(data);
+        conf.setIdentityProviders(parseYaml(yaml));
         conf.afterPropertiesSet();
 
         for (SamlIdentityProviderDefinition def : conf.getIdentityProviderDefinitions()) {
